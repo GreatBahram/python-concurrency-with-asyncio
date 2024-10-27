@@ -53,13 +53,13 @@ So what is asynchronous programming? It means that a particular long-running tas
 
 When we say two tasks are happening concurrently, we mean those tasks are happening at the same time.
 
-![image-20240830221930469](/home/bahram/projects/python-concurrency-with-asyncio/notes/01-getting-to-know-asyncio.assets/image-20240830221930469.png)
+![image-20240830221930469](./01-getting-to-know-asyncio.assets/image-20240830221930469.png)
 
 ### Parallelism
 
 When we say something is running in parallel, we mean not only are there two or more tasks happening concurrently, but they are also executing at the same time.
 
-![image-20240830222019744](/home/bahram/projects/python-concurrency-with-asyncio/notes/01-getting-to-know-asyncio.assets/image-20240830222019744.png)
+![image-20240830222019744](./01-getting-to-know-asyncio.assets/image-20240830222019744.png)
 
 > [!NOTE]
 >
@@ -150,7 +150,7 @@ But at the  OS level we can operate in non-blocking mode, using something that i
 
 But how do we keep track of which tasks are waiting for I/O as opposed to ones that can just run because they are regular Python code? The answer lies in a construct called **an event loop.**
 
-![img](/home/bahram/projects/python-concurrency-with-asyncio/slides/reveal.js/assets/event-loop.png)
+![img](./01-getting-to-know-asyncio.assets/event-loop.png)
 
 The most basic event loop is extremely simple. We create a queue that holds a list
 of events or messages.
@@ -174,4 +174,4 @@ task_two = make_request()
 task_three = make_request()
 ```
 
-![image-20240830223601377](/home/bahram/projects/python-concurrency-with-asyncio/slides/reveal.js/assets/event-loop-output.png)
+![image-20240830223601377](./01-getting-to-know-asyncio.assets/event-loop-output.png)

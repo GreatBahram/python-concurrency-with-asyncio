@@ -1,0 +1,338 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+	<title>Intro to Concurency</title>
+
+	<link rel="stylesheet" href="dist/reset.css">
+	<link rel="stylesheet" href="dist/reveal.css">
+	<link rel="stylesheet" href="dist/theme/black.css">
+
+	<!-- Theme used for syntax highlighted code -->
+	<link rel="stylesheet" href="plugin/highlight/monokai.css">
+</head>
+
+<body>
+	<div class="reveal">
+		<div class="slides">
+			<section>
+				<h3>Intro to Concurrency</h3>
+				<p>
+					<small>
+						Created by <a href="">Bahram Aghaei</a>
+					</small>
+				</p>
+			</section>
+			<section data-transition="slide" data-background="#4d7e65" data-background-transition="zoom">
+				<h6 style="color: #333333; font-weight: bold;">
+					Common I/O operations in web applications:
+				</h6>
+				<ul style="color: #ffffff;">
+					<li class="fragment">Downloading the content of a web page</li>
+					<li class="fragment">Communicating over a network</li>
+					<li class="fragment">Running several queries against a database</li>
+				</ul>
+			</section>
+			<section>
+				<p style="font-size: 1.2em; text-align: center;">
+					But, the I/O operations tend to be
+					<span class="fragment" style="color: red; font-weight: bold;">slow</span> for different reasons.
+				</p>
+			</section>
+
+			<section data-transition="slide" data-background="#ffefd5" data-background-transition="zoom">
+				<h2 style="color: #333333; font-weight: bold; font-size: 1.5em; text-align: center;">
+					What We'll Cover
+				</h2>
+				<ul style="color: #2c3e50; font-size: 0.85em;line-height: 1.5em; list-style: disc; padding-left: 2em;">
+					<li class="fragment fade-in">What is <code>asyncio</code>?</li>
+					<li class="fragment fade-in">Difference between CPU-bound vs. I/O-bound</li>
+					<li class="fragment fade-in">Concurrency, Parallelism, and Multitasking</li>
+					<li class="fragment fade-in">Global Interpreter Lock (GIL)</li>
+					<li class="fragment fade-in">Non-blocking I/O + Event Loop</li>
+				</ul>
+			</section>
+			<section data-transition="slide" data-background="#f0f4c3" data-background-transition="zoom">
+				<h2 style="color: #2c3e50; font-weight: bold; text-align: center;">
+					What is asyncio?
+				</h2>
+				<div style="width: 60%; margin: 0 auto; text-align: left;">
+					<p class="fragment fade-in" style="color: #2c3e50; font-size: 0.50em; margin-top: 20px;">
+						In a synchronous app, code runs sequentially, waiting for each task to finish.
+					</p>
+					<p class="fragment fade-in" style="color: #2c3e50;font-size: 0.50em;">
+						<strong>Concurrency</strong> allows multiple tasks to run simultaneously, keeping the app
+						responsive.
+					</p>
+					<p class="fragment fade-in" style="color: #2c3e50;font-size: 0.50em;">
+						Asynchronous programming lets tasks run in the background, freeing up the system to do other
+						work.
+					</p>
+					<p class="fragment fade-in" style="color: #2c3e50;font-size: 0.50em;">
+						<code>asyncio</code> is a Python library for managing tasks asynchronously using a
+						<strong>single-threaded event loop</strong>.
+					</p>
+				</div>
+			</section>
+			<section data-transition="slide" data-background="#FFCCBC" data-background-transition="fade">
+				<h3 style="color: #333333; font-weight: bold; text-align: center; font-size: 2em;">
+					CPU-bound<br>
+					vs<br>
+					I/O-bound
+				</h3>
+			</section>
+			<section data-transition="slide" data-background="#f1f8e9" data-background-transition="fade">
+				<h3 style="color: #388e3c; font-weight: bold; text-align: center; font-size: 1.5em;">
+					Concurrency
+				</h3>
+				<p class="fragment fade-in"
+					style="color: #333333; font-size: 0.50em; text-align: center; margin: 20px auto; width: 70%;">
+					When we say two tasks are happening concurrently, we mean those tasks are happening at the same
+					time.
+				</p>
+				<div class="fragment fade-in" style="text-align: center;">
+					<img src="assets/concurrency.png" alt="Concurrency Illustration"
+						style="max-width: 60%; border-radius: 10px;">
+				</div>
+			</section>
+			<section data-transition="zoom" data-background="#e1f5fe" data-background-transition="convex">
+				<h3 style="color: #0277bd; font-weight: bold; text-align: center; font-size: 1.5em;">
+					Parallelism
+				</h3>
+				<p class="fragment fade-in"
+					style="color: #333333; font-size: 0.50em; text-align: center; margin: 20px auto; width: 70%;">
+					When we say something is running in <span
+						style="color: #d32f2f; font-weight: bold;">parallel</span>, we mean not only are there
+					<span style="color: #d32f2f; font-weight: bold;">two or more tasks</span> happening <span
+						style="text-decoration: underline;">concurrently</span>, but they are also
+					<span style="color: #d32f2f; font-weight: bold;">executing at the same time</span>.
+				</p>
+				<div class="fragment fade-in" style="text-align: center;">
+					<img src="assets/parallelism.png" alt="Parallelism Illustration"
+						style="max-width: 60%; border-radius: 10px;">
+				</div>
+			</section>
+			<section data-transition="slide" data-background="#fff3e0" data-background-transition="fade">
+				<h3 style="color: #ef6c00; font-weight: bold; text-align: center; font-size: 1.5em;">
+					Multitasking
+				</h3>
+				<ul style="color: #333333; font-size: 0.75em; text-align: left; margin: 20px auto; width: 70%;">
+					<li class="fragment fade-in"><strong>Preemptive Multitasking</strong></li>
+					<li class="fragment fade-in"><strong>Cooperative Multitasking</strong></li>
+				</ul>
+			</section>
+			<section data-transition="slide" data-background="#e8f5e9" data-background-transition="zoom">
+				<h3 style="color: #43a047; font-weight: bold; text-align: center; font-size: 1.5em;">
+					Preemptive Multitasking
+				</h3>
+				<p class="fragment fade-in"
+					style="color: #333333; font-size: 0.60em; text-align: center; margin: 20px auto; width: 70%;">
+					In this model, the operating system decides how to switch between tasks using time slicing, known as
+					<strong>preempting</strong>.
+				</p>
+			</section>
+			<section data-transition="slide" data-background="#e3f2fd" data-background-transition="convex">
+				<h3 style="color: #1e88e5; font-weight: bold; text-align: center; font-size: 1.5em;">
+					Cooperative Multitasking
+				</h3>
+				<p class="fragment fade-in"
+					style="color: #333333; font-size: 0.50em; text-align: center; margin: 20px auto; width: 70%;">
+					In this model, the program itself defines points where other tasks can run.
+				</p>
+				<p class="fragment fade-in"
+					style="color: #333333; font-size: 0.70em; text-align: center; margin: 20px auto; width: 70%;">
+					<span style="color: #d32f2f; font-weight: bold;">“I’m pausing my task; go ahead and run other
+						tasks.”</span>
+				</p>
+				<ul class="fragment fade-in"
+					style="color: #333333; font-size: 0.7em; text-align: left; margin: 20px auto; width: 70%;">
+					<li class="fragment fade-in"><strong>Less resource intensive</strong></li>
+					<li class="fragment fade-in"><strong>More granularity</strong></li>
+				</ul>
+			</section>
+			<section data-transition="slide" data-background="#f3e5f5" data-background-transition="fade">
+				<h3 style="color: #8e24aa; font-weight: bold; text-align: center; font-size: 1.5em;">
+					Global Interpreter Lock (GIL)
+				</h3>
+				<p class="fragment"
+					style="color: #333333; font-size: 0.7em; text-align: left; margin: 20px auto; width: 75%;">
+					GIL prevents one Python process from
+					<span class="fragment" style="color: red;">executing more than one Python bytecode instruction at
+						any given time.</span>
+				</p>
+
+				<p class="fragment fade-in"
+					style="color: #333333; font-size: 0.8em; text-align: left; margin: 20px auto; width: 75%;">
+					<strong>Why does the GIL exist?</strong><br>
+				</p>
+				<ul
+					style="color: #333333; font-size: 0.7em; text-align: left; margin: 0 auto 20px; width: 75%; padding-left: 70px;">
+					<li class="fragment fade-in">due to how memory is managed in CPython.</li>
+					<li class="fragment fade-in">CPython is not thread safe.</li>
+				</ul>
+
+				<p class="fragment fade-in"
+					style="color: #ffffff; font-size: 0.65em; text-align: center; margin: 20px auto; width: 80%; padding: 10px; background-color: #388e3c; border-radius: 5px;">
+					<strong>Takeaway:</strong> For CPU-bound tasks, multithreading is not beneficial.
+				</p>
+
+			</section>
+			<section data-transition="slide" data-background="#e8f5e9" data-background-transition="convex">
+				<h3 style="color: #2e7d32; font-weight: bold; text-align: center; font-size: 1.5em;">
+					GIL (continued)
+				</h3>
+				<p class="fragment fade-in"
+					style="color: #333333; font-size: 0.7em; text-align: left; margin: 20px auto; width: 75%;">
+					<strong>Is the GIL ever released?</strong><br>
+
+				</p>
+				<ul
+					style="color: #333333; font-size: 0.7em; text-align: left; margin: 0 auto 20px; width: 75%; padding-left: 70px;">
+					<li class="fragment fade-in">The GIL is released when I/O operations occur.</li>
+				</ul>
+				<p class="fragment fade-in"
+					style="color: #333333; font-size: 0.7em; text-align: left; margin: 20px auto; width: 75%;">
+					<strong>Why release the GIL for I/O but not CPU-bound tasks?</strong><br>
+				</p>
+				<ul
+					style="color: #333333; font-size: 0.7em; text-align: left; margin: 0 auto 20px; width: 75%; padding-left: 70px;">
+					<li class="fragment fade-in">I/O operations use system calls outside of the Python runtime, allowing
+						the GIL to be
+						released.</li>
+					<li class="fragment fade-in">CPU-bound tasks do not benefit from GIL release because they run within
+						Python. </li>
+				</ul>
+			</section>
+			<section data-transition="slide" data-background="#e8f5e9" data-background-transition="convex">
+				<h3 style="color: #2e7d32; font-weight: bold; text-align: center; font-size: 1.5em;">
+					GIL (continued)
+				</h3>
+				<p class="fragment fade-in"
+					style="color: #333333; font-size: 0.9em; text-align: left; margin: 20px auto; width: 75%;">
+					<strong>Using asyncio with GIL:</strong><br>
+				</p>
+				<ul
+					style="color: #333333; font-size: 0.7em; text-align: left; margin: 0 auto 20px; width: 75%; padding-left: 70px;">
+					<li class="fragment fade-in">
+						asyncio uses <strong>coroutines</strong>, which are lightweight threads.
+					</li>
+					<li class="fragment fade-in">
+						<span style="color: #d32f2f; font-weight: bold;">Important:</span> asyncio does not
+						circumvent the GIL; it operates within its constraints.
+					</li>
+				</ul>
+			</section>
+			<section data-transition="slide" data-background="#e0f7fa" data-background-transition="fade">
+				<h3 style="color: #00796b; font-weight: bold; text-align: center; font-size: 1.5em;">
+					Non-Blocking I/O + Event Loop
+				</h3>
+				<p class="fragment fade-in"
+					style="color: #333333; font-size: 1em; text-align: center; margin: 20px auto; width: 70%;">
+					Sockets are blocking by default.
+				</p>
+				<pre data-id="code-animation" class="fragment fade-in">
+				<code class="language-python" data-trim data-trim data-line-numbers="1-7|9-11">
+			import socket
+			
+			sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+			
+			# Connect the socket to the server's address and port
+			server_address = ('localhost', 8080)
+			sock.connect(server_address)
+			
+			# Blocking read from the socket
+			data = sock.recv(1024)  # Blocking call
+			print(f"Received: {data.decode()}")
+			</code>
+				</pre>
+			</section>
+			<section data-transition="slide" data-background="#e8f5e9" data-background-transition="fade">
+				<h3 style="color: #181514; font-weight: bold; text-align: center; font-size: 1.2em;">
+					Solution 🤔
+				</h3>
+				<p class="fragment fade-in"
+					style="color: #333333; font-size: 1em; text-align: center; margin: 20px auto; width: 95%;">
+					At the OS level, we can operate in non-blocking mode using <span
+						style="color: #179623; font-weight: bold;"> event notification systems</span>.
+				</p>
+				<ul style="color: #333333; font-size: 0.9em; text-align: left; margin: 20px auto; width: 70%;">
+					<li class="fragment fade-in"><strong style="color: #d32f2f;">kqueue</strong> — FreeBSD and MacOS
+					</li>
+					<li class="fragment fade-in"><strong style="color: #1976d2;">epoll</strong> — Linux</li>
+					<li class="fragment fade-in"><strong style="color: #388e3c;">IOCP (I/O completion port)</strong> —
+						Windows</li>
+				</ul>
+			</section>
+			<section data-transition="slide" data-background="#fff3e0" data-background-transition="fade">
+				<h3 style="color: #ef6c00; font-weight: bold; text-align: center; font-size: 1.2em;">
+					The Event Loop: Managing I/O Tasks
+				</h3>
+				<p class="fragment fade-in"
+					style="color: #333333; font-size: 1em; text-align: center; margin: 20px auto; width: 95%;">
+					How do we track which tasks are waiting for I/O versus those that are regular Python code?
+				</p>
+				<p class="fragment fade-in"><strong>an event loop</strong></p>
+				<div class="fragment fade-in" style="text-align: center;">
+					<img src="./assets/event-loop.png" alt="Event Loop Illustration"
+						style="max-width: 70%; border-radius: 10px;">
+				</div>
+			</section>
+			<section data-transition="slide" data-background="#e0f7fa" data-background-transition="fade">
+				<h3 style="color: #00796b; font-weight: bold; text-align: center; font-size: 1.5em;">
+					Basic Event Loop Example
+				</h3>
+				<pre data-id="code-animation" class="fragment fade-in">
+			<code class="language-python" data-trim data-line-numbers="1-2|4-7|9-12|14-16" class="fragment fade-in">
+			from collections import deque
+			messages = deque()
+			
+			while True:
+				if messages:
+					message = messages.pop()
+					process_message(message)
+			
+			def make_request():
+				cpu_bound_setup()
+				io_bound_web_request()
+				cpu_bound_postprocess()
+			
+			task_one = make_request()
+			task_two = make_request()
+			task_three = make_request()
+			</code>
+			</pre>
+				<div class="fragment fade-in" style="text-align: center;">
+					<img src="assets/event-loop-output.png" alt="Event Loop Execution"
+						style="max-width: 70%; border-radius: 10px;">
+				</div>
+			</section>
+
+
+		</div>
+
+	</div>
+
+	<script src="dist/reveal.js"></script>
+	<script src="plugin/notes/notes.js"></script>
+	<script src="plugin/markdown/markdown.js"></script>
+	<script src="plugin/highlight/highlight.js"></script>
+	<script>
+		// More info about initialization & config:
+		// - https://revealjs.com/initialization/
+		// - https://revealjs.com/config/
+		Reveal.initialize({
+			hash: true,
+
+			// Learn about plugins: https://revealjs.com/plugins/
+			plugins: [RevealMarkdown, RevealHighlight, RevealNotes],
+			pdfSeparateFragments: false, // Combine fragments into a single slide
+			pdfMaxPagesPerSlide: 1, // Number of slides per PDF page
+			pdfPageHeightOffset: 0 // Offset for the height of each page
+		});
+	</script>
+</body>
+
+</html>
