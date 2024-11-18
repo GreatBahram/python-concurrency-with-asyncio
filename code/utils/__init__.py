@@ -21,10 +21,9 @@ def async_timed():
     return wrapper
 
 
-
-
-async def delay(seconds: int) -> None:
-    print("Sleeping for {seconds} seconds.")
+@async_timed()
+async def delay(seconds: int) -> int:
+    print(f"Sleeping for {seconds} seconds.")
     await asyncio.sleep(seconds)
-    print("Finished sleeping for {seconds} seconds.")
+    print(f"Finished sleeping for {seconds} seconds.")
     return seconds
