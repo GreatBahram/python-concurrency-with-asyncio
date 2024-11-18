@@ -265,7 +265,7 @@ def count(until: int) -> Generator[None, None, int]:
 for num in count(3):
     print(num)
 ```
-
+In case you're not familiar with generators check this [blog post](https://virgool.io/@GreatBahram/once-for-ever-iterator-generator-jkgkk1s2dncj) out.
 Is it possible to achieve something similar in an asynchronous manner?
 
 ```python
