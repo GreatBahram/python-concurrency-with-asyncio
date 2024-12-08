@@ -233,56 +233,129 @@ https://mleue.com/
 
 ### Simple program
 
+```python
+from contextlib import asynccontextmanager
+import asyncpg
+from asyncpg import Connection, Record
+from asyncpg.pool import Pool
+from typing import AsyncGenerator, List, Dict
+from fastapi import Depends, FastAPI
 
+
+db_pool: Pool
+
+
+async def create_database_pool():
+    global db_pool
+    db_pool = await asyncpg.create_pool(
+        host="127.0.0.1",
+        port=5432,
+        user="postgres",
+        password="password",
+        database="products",
+        min_size=6,
+        max_size=6,
+    )
+
+
+async def destroy_database_pool():
+    global db_pool
+    await db_pool.close()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await create_database_pool()
+    yield
+    await destroy_database_pool()
+
+
+async def get_connection() -> AsyncGenerator[None, Connection]:
+    async with db_pool.acquire() as conn:
+        yield conn
+
+
+app = FastAPI(lifespan=lifespan)
+
+
+@app.get("/brands")
+async def brands(conn: Connection = Depends(get_connection)):
+    brand_query = "SELECT brand_id, brand_name FROM brand"
+    results: List[Record] = await conn.fetch(brand_query)
+    result_as_dict: List[Dict] = [dict(brand) for brand in results]
+    return result_as_dict
+
+```
+
+`uvicorn --workers 8 main:app --log-level error`
+
+`wrk -t1 -c200 -d30s http://localhost:8000/brands`
 
 ### Websocket example
 
 ```python
 import asyncio
-from starlette.applications import Starlette
-from starlette.endpoints import WebSocketEndpoint
-from starlette.routing import WebSocketRoute
-from asgiref.sync import sync_to_async, async_to_sync
+from contextlib import suppress
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 
-class UserCounter(WebSocketEndpoint):
-    encoding = "text"
-    sockets = []
 
-    async def on_connect(self, websocket):
+app = FastAPI()
+
+
+class UserCounter:
+    def __init__(self):
+        self._sockets: list[WebSocket] = []
+
+    async def on_connect(self, websocket: WebSocket) -> None:
         await websocket.accept()
-        self.sockets.append(websocket)
+        self._sockets.append(websocket)
         await self._send_count()
 
-    async def on_disconnect(self, websocket, close_code):
-        self.sockets.remove(websocket)
+    async def on_disconnect(self, websocket: WebSocket):
+        self._sockets.remove(websocket)
         await self._send_count()
 
-    async def on_receive(self, websocket, data):
+    async def on_receive(self, ws: WebSocket, data: bytes) -> None:
         pass
 
     async def _send_count(self):
-        if self.sockets:
-            count_str = str(len(self.sockets))
+        if self._sockets:
+            count_str = str(len(self._sockets))
             task_to_socket = {
-                asyncio.create_task(websocket.send_text(count_str)): websocket
-                for websocket in self.sockets
+                asyncio.create_task(ws.send_text(count_str)): ws for ws in self._sockets
             }
-
-            done, _ = await asyncio.wait(task_to_socket)
-
-            for task in done:
-                if task.exception() is not None:
-                    if task_to_socket[task] in self.sockets:
-                        self.sockets.remove(task_to_socket[task])
+            done, pending = await asyncio.wait(task_to_socket)
+            for task_done in done:
+                if task_done.exception() is not None:
+                    with suppress(ValueError):
+                        self._sockets.remove(task_to_socket[task_done])
 
 
-app = Starlette(routes=[WebSocketRoute("/counter", UserCounter)])
+user_counter = UserCounter()
+
+
+@app.websocket("/counter")
+async def connection_counter(websocket: WebSocket):
+    await user_counter.on_connect(websocket)
+    try:
+        while True:
+            data = await websocket.receive_text()
+            await user_counter.on_receive(ws=websocket, data=data)
+    except WebSocketDisconnect:
+        await user_counter.on_disconnect(websocket)
 
 ```
 
 let's convert them to Fast API for fun?
 
 ## Django Asynchronous Views
+
+```shell
+pip install django
+django-admin startproject async_views
+gunicorn async_views.asgi:application -k uvicorn.workers.UvicornWorker
+python3 manage.py startapp async_api
+```
 
 https://fly.io/django-beats/running-tasks-concurrently-in-django-asynchronous-views/
 
