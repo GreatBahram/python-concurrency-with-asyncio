@@ -126,7 +126,7 @@ if __name__ == "__main__":
 
 ```
 
-ow that we’ve covered the basics of threading, let’s explore how to integrate it with `asyncio` for working with popular blocking libraries. Keep in mind that with this approach, you’ll need to manage threads manually. However, as we learned earlier, using a `ThreadPoolExecutor` simplifies this process significantly.
+Now that we’ve covered the basics of threading, let’s explore how to integrate it with `asyncio` for working with popular blocking libraries. Keep in mind that with this approach, you’ll need to manage threads manually. However, as we learned earlier, using a `ThreadPoolExecutor` simplifies this process significantly.
 
 Let’s see it in action:
 
