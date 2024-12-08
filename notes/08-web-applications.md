@@ -1,239 +1,39 @@
-# Web applications
+# Asynchronous Web Applications
 
-## REST API using `aiohttp`
+## REST API using FastAPI
 
 ```python
-
-from aiohttp import web
-from aiohttp.web import Application
+from fastapi import FastAPI
 from datetime import datetime
-from aiohttp.web_request import Request
-from aiohttp.web_response import Response
 
-routes = web.RouteTableDef()
+app = FastAPI()
 
 
-@routes.get("/time")
-async def time(request: Request) -> Response:
+@app.get("/time")
+async def time():
     today = datetime.today()
-    return web.json_response(
-        {"month": today.month, "day": today.day, "time": str(today.time())}
-    )
-
-
-app = web.Application()
-app.add_routes(routes)
-web.run_app(app)
-```
-
-`curl -i localhost:8080/time`
-
-```python
-from aiohttp import web
-from aiohttp.web import Application
-import asyncpg
-from asyncpg import Pool
-from aiohttp.web_request import Request
-from aiohttp.web_response import Response
-
-routes = web.RouteTableDef()
-DB_KEY = "database"
-
-
-async def create_database_pool(app: Application):
-    print("Creating database pool.")
-    pool: Pool = await asyncpg.create_pool(
-        host="127.0.0.1",
-        port=5432,
-        user="postgres",
-        password="password",
-        database="products",
-        min_size=6,
-        max_size=6,
-    )
-    app[DB_KEY] = pool
-
-
-async def destroy_database_pool(app: Application):
-    print("Destroying database pool.")
-    pool: Pool = app[DB_KEY]
-    await pool.close()
-
-
-@routes.get("/brands")
-async def get_brands(request: Request) -> Response:
-    brand_query = "SELECT brand_id, brand_name FROM brand"
-    pool = request.app[DB_KEY]
-    async with pool.acquire() as conn:
-        rows = await conn.fetch(brand_query)
-
-    results = [dict(brand) for brand in rows]
-    return web.json_response(results)
-
-
-@routes.get("/products/{id}")
-async def get_product(request: Request) -> Response:
-    try:
-        str_id = request.match_info["id"]  # A
-        product_id = int(str_id)
-
-        query = """
-            SELECT
-            product_id,
-            product_name,
-            brand_id
-            FROM product
-            WHERE product_id = $1
-            """
-
-        connection: Pool = request.app[DB_KEY]
-        result = await connection.fetchrow(query, product_id)  # B
-
-        if result:
-            return web.json_response(dict(result))
-        else:
-            raise web.HTTPNotFound()
-    except ValueError:
-        raise web.HTTPBadRequest()
-
-
-app = web.Application()
-app.add_routes(routes)
-app.on_startup.append(create_database_pool)
-app.on_cleanup.append(destroy_database_pool)
-web.run_app(app)
+    return {"month": today.month, "day": today.day, "time": str(today.time())}
 
 ```
 
+```shell
+# use this command to run the server
+fastapi dev main.py
 
+# use this to call the api
+curl -i localhost:8080/time
+```
 
-### Compare aiohttp and Flask
+### Comparing FastAPI and Flask
 
-```python
-# aiohttp server
-from aiohttp import web
-from aiohttp.web import Application
-import asyncpg
-from asyncpg import Pool
-from aiohttp.web_request import Request
-from aiohttp.web_response import Response
+Make sure you've the database instance running
 
-routes = web.RouteTableDef()
-DB_KEY = "database"
-
-
-async def create_database_pool(app: Application):
-    print("Creating database pool.")
-    pool: Pool = await asyncpg.create_pool(
-        host="127.0.0.1",
-        port=5432,
-        user="postgres",
-        password="password",
-        database="products",
-        min_size=6,
-        max_size=6,
-    )
-    app[DB_KEY] = pool
-
-
-async def destroy_database_pool(app: Application):
-    print("Destroying database pool.")
-    pool: Pool = app[DB_KEY]
-    await pool.close()
-
-
-@routes.get("/brands")
-async def get_brands(request: Request) -> Response:
-    brand_query = "SELECT brand_id, brand_name FROM brand"
-    pool = request.app[DB_KEY]
-    async with pool.acquire() as conn:
-        rows = await conn.fetch(brand_query)
-
-    results = [dict(brand) for brand in rows]
-    return web.json_response(results)
-
-
-app = web.Application()
-app.add_routes(routes)
-app.on_startup.append(create_database_pool)
-app.on_cleanup.append(destroy_database_pool)
-web.run_app(app)
+```shell
+docker run -d --name my-postgres-container -p 5432:5432 my-postgres
 ```
 
 ```python
-# flask app
-from flask import Flask, jsonify
-import psycopg2
-
-app = Flask(__name__)
-conn_info = "dbname=products user=postgres password=password host=127.0.0.1"
-db = psycopg2.connect(conn_info)
-
-
-@app.route("/brands")
-def brands():
-    cur = db.cursor()
-    cur.execute("SELECT brand_id, brand_name FROM brand")
-    rows = cur.fetchall()
-    cur.close()
-    return jsonify([{"brand_id": row[0], "brand_name": row[1]} for row in rows])
-
-```
-
-```
-gunicorn -w 8 flasky:app 
-wrk -t1 -c200 -d30s http://localhost:8000/brands
-
-python3 main.py
-wrk -t1 -c200 -d30s http://localhost:8000/brands
-```
-
-
-
-## `ASGI`
-
-WSGI is a standardized way to forward web requests to a web framework, such as Flask or Django. WSGI operates based on request/response, meaning it won't support long-lived connection protocols, such as web-sockets.Gunicorn is a WSGI server. ASGI is the new cool-kid in the town, but is not standardised yet. ASGI fixes this by redesigning the API to use coroutines.
-
-```python
-#wsgi.py
-def application(env, start_response):
-    start_response("200 OK", [("Content-Type", "text/html")])
-    return [b"WSGI hello!"]
-
-```
-
-`gunicorn wsgi:application`
-
-` curl -i localhost:8000`
-
-```python
-# asgi.py
-from typing import Coroutine
-
-
-async def application(scope: dict, receive: Coroutine, send: Coroutine):
-    await send(
-        {
-            "type": "http.response.start",
-            "status": 200,
-            "headers": [[b"content-type", b"text/html"]],
-        }
-    )
-    await send({"type": "http.response.body", "body": b"ASGI hello!"})
-
-```
-
-how do we serve the above application? There are a few implementation, one of the famous one is `uvicorn`
-
-`uvicorn asgi:application`
-
-https://mleue.com/
-
-## Starlette or Fast API
-
-### Simple program
-
-```python
+# FastAPI program
 from contextlib import asynccontextmanager
 import asyncpg
 from asyncpg import Connection, Record
@@ -284,14 +84,84 @@ async def brands(conn: Connection = Depends(get_connection)):
     results: List[Record] = await conn.fetch(brand_query)
     result_as_dict: List[Dict] = [dict(brand) for brand in results]
     return result_as_dict
+```
+
+```python
+# flask app
+from flask import Flask, jsonify
+import psycopg2
+
+app = Flask(__name__)
+conn_info = "dbname=products user=postgres password=password host=127.0.0.1"
+db = psycopg2.connect(conn_info)
+
+
+@app.route("/brands")
+def brands():
+    cur = db.cursor()
+    cur.execute("SELECT brand_id, brand_name FROM brand")
+    rows = cur.fetchall()
+    cur.close()
+    return jsonify([{"brand_id": row[0], "brand_name": row[1]} for row in rows])
 
 ```
 
-`uvicorn --workers 8 main:app --log-level error`
+```shell
+# Test the async app
+> uvicorn --workers 8 main:app --log-level error
+> wrk -t1 -c200 -d30s http://localhost:8000/brands
 
-`wrk -t1 -c200 -d30s http://localhost:8000/brands`
+# Test the flask application
+> gunicorn -w 8 flasky:app
+> wrk -t1 -c200 -d30s http://localhost:8000/brands
+```
 
-### Websocket example
+## `ASGI`
+
+WSGI is a standardized way to forward web requests to a web framework, such as Flask or Django. WSGI operates based on request/response, meaning it won't support long-lived connection protocols, such as web-sockets. Gunicorn is a WSGI server.
+
+```python
+#wsgi.py
+def application(env, start_response):
+    start_response("200 OK", [("Content-Type", "text/html")])
+    return [b"WSGI hello!"]
+
+```
+
+```shell
+# ask gunicorn to run our custom wsgi app
+gunicorn wsgi:application
+
+# Test it out
+curl -i localhost:8000
+```
+
+ASGI is the new cool-kid in the town, but is not standardised yet. ASGI fixes request/response issue by redesigning the API to use coroutines.
+
+```python
+# asgi.py
+from typing import Coroutine
+
+
+async def application(scope: dict, receive: Coroutine, send: Coroutine):
+    await send(
+        {
+            "type": "http.response.start",
+            "status": 200,
+            "headers": [[b"content-type", b"text/html"]],
+        }
+    )
+    await send({"type": "http.response.body", "body": b"ASGI hello!"})
+
+```
+
+How do we serve the above application? There are a few implementation, one of the famous one is `uvicorn`
+
+`uvicorn asgi:application`
+
+https://mleue.com/
+
+### Websocket with FastAPI
 
 ```python
 import asyncio
@@ -346,8 +216,6 @@ async def connection_counter(websocket: WebSocket):
 
 ```
 
-let's convert them to Fast API for fun?
-
 ## Django Asynchronous Views
 
 ```shell
@@ -358,5 +226,3 @@ python3 manage.py startapp async_api
 ```
 
 https://fly.io/django-beats/running-tasks-concurrently-in-django-asynchronous-views/
-
-`wrk -t1 -c200 -d30s http://localhost:8080/brands`
