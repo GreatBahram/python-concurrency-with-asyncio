@@ -1,121 +1,4 @@
 # Asynchronous Web Applications
-
-## REST API using FastAPI
-
-```python
-from fastapi import FastAPI
-from datetime import datetime
-
-app = FastAPI()
-
-
-@app.get("/time")
-async def time():
-    today = datetime.today()
-    return {"month": today.month, "day": today.day, "time": str(today.time())}
-
-```
-
-```shell
-# use this command to run the server
-fastapi dev main.py
-
-# use this to call the api
-curl -i localhost:8080/time
-```
-
-### Comparing FastAPI and Flask
-
-Make sure you've the database instance running
-
-```shell
-docker run -d --name my-postgres-container -p 5432:5432 my-postgres
-```
-
-```python
-# FastAPI program
-from contextlib import asynccontextmanager
-import asyncpg
-from asyncpg import Connection, Record
-from asyncpg.pool import Pool
-from typing import AsyncGenerator, List, Dict
-from fastapi import Depends, FastAPI
-
-
-db_pool: Pool
-
-
-async def create_database_pool():
-    global db_pool
-    db_pool = await asyncpg.create_pool(
-        host="127.0.0.1",
-        port=5432,
-        user="postgres",
-        password="password",
-        database="products",
-        min_size=6,
-        max_size=6,
-    )
-
-
-async def destroy_database_pool():
-    global db_pool
-    await db_pool.close()
-
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    await create_database_pool()
-    yield
-    await destroy_database_pool()
-
-
-async def get_connection() -> AsyncGenerator[None, Connection]:
-    async with db_pool.acquire() as conn:
-        yield conn
-
-
-app = FastAPI(lifespan=lifespan)
-
-
-@app.get("/brands")
-async def brands(conn: Connection = Depends(get_connection)):
-    brand_query = "SELECT brand_id, brand_name FROM brand"
-    results: List[Record] = await conn.fetch(brand_query)
-    result_as_dict: List[Dict] = [dict(brand) for brand in results]
-    return result_as_dict
-```
-
-```python
-# flask app
-from flask import Flask, jsonify
-import psycopg2
-
-app = Flask(__name__)
-conn_info = "dbname=products user=postgres password=password host=127.0.0.1"
-db = psycopg2.connect(conn_info)
-
-
-@app.route("/brands")
-def brands():
-    cur = db.cursor()
-    cur.execute("SELECT brand_id, brand_name FROM brand")
-    rows = cur.fetchall()
-    cur.close()
-    return jsonify([{"brand_id": row[0], "brand_name": row[1]} for row in rows])
-
-```
-
-```shell
-# Test the async app
-> uvicorn --workers 8 main:app --log-level error
-> wrk -t1 -c200 -d30s http://localhost:8000/brands
-
-# Test the flask application
-> gunicorn -w 8 flasky:app
-> wrk -t1 -c200 -d30s http://localhost:8000/brands
-```
-
 ## `ASGI`
 
 WSGI is a standardized way to forward web requests to a web framework, such as Flask or Django. WSGI operates based on request/response, meaning it won't support long-lived connection protocols, such as web-sockets. Gunicorn is a WSGI server.
@@ -160,6 +43,104 @@ How do we serve the above application? There are a few implementation, one of th
 `uvicorn asgi:application`
 
 https://mleue.com/
+
+## REST API using FastAPI
+
+```python
+from fastapi import FastAPI
+from datetime import datetime
+
+app = FastAPI()
+
+
+@app.get("/time")
+async def time():
+    today = datetime.today()
+    return {"month": today.month, "day": today.day, "time": str(today.time())}
+
+```
+
+```shell
+# use this command to run the server
+fastapi dev main.py
+
+# use this to call the api
+curl -i localhost:8080/time
+```
+
+### Comparing FastAPI and Flask
+
+Make sure you've the database instance running
+
+```shell
+docker run -d --name my-postgres-container -p 5432:5432 my-postgres
+```
+
+```python
+from fastapi import Depends, FastAPI
+from asyncpg import Pool, Record
+import asyncpg
+from contextlib import asynccontextmanager
+
+
+class DatabasePool:
+    _pool: Pool = None
+
+    @classmethod
+    async def create_database_pool(
+        cls,
+    ):
+        if cls._pool is None:
+            print("Setting up database pool...")
+            cls._pool = await asyncpg.create_pool(
+                host="127.0.0.1",
+                port=5432,
+                user="postgres",
+                database="products",
+                password="password",
+                min_size=6,
+                max_size=6,
+            )
+
+    @classmethod
+    async def destroy_database_pool(cls):
+        if cls._pool:
+            print("Destroying database pool...")
+            await app.state.DB_POOL.close()
+
+    @classmethod
+    async def get_pool(cls) -> Pool:
+        if cls._pool is None:
+            raise ValueError("Vaaaaay, nah 😢")
+        return cls._pool
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await DatabasePool.create_database_pool()
+    yield
+    await DatabasePool.destroy_database_pool()
+
+
+app = FastAPI(lifespan=lifespan)
+
+
+@app.get("/brands")
+async def get_brands(pool: Pool = Depends(DatabasePool.get_pool)):
+    async with pool.acquire() as conn:
+        brand_query = "select brand_id, brand_name from brand"
+        results: list[Record] = await conn.fetch(brand_query)
+        return [dict(r) for r in results]
+
+```
+
+
+
+```shell
+# Test the async app
+> uvicorn --workers 8 main:app --log-level error
+> wrk -t1 -c200 -d30s http://localhost:8000/brands
+```
 
 ### Websocket with FastAPI
 
@@ -215,14 +196,3 @@ async def connection_counter(websocket: WebSocket):
         await user_counter.on_disconnect(websocket)
 
 ```
-
-## Django Asynchronous Views
-
-```shell
-pip install django
-django-admin startproject async_views
-gunicorn async_views.asgi:application -k uvicorn.workers.UvicornWorker
-python3 manage.py startapp async_api
-```
-
-https://fly.io/django-beats/running-tasks-concurrently-in-django-asynchronous-views/
